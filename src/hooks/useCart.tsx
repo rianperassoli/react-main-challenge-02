@@ -35,6 +35,8 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const addProduct = async (productId: number) => {
     try {
+      const produto = cart.find(product => product.id === productId)
+
       const [productResponse, stockResponse] = await Promise.all([
         api.get(`products/${productId}`),
         api.get(`stock/${productId}`)
@@ -43,8 +45,9 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       const product = productResponse.data
       const stock = stockResponse.data
 
-      if (!stock.amount) {
+      if ((stock.amount < 0) || (produto && produto.amount >= stock.amount)) {
         toast.error('Quantidade solicitada fora de estoque');
+        return
       }
 
       let newCart;
@@ -69,6 +72,11 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const removeProduct = (productId: number) => {
     try {
+      const product = cart.find(product => product.id === productId)
+      if (!product) {
+        return toast.error('Erro na remoção do produto');
+      }
+
       const newCart = cart.filter(product => product.id !== productId)
 
       setCart(newCart)
@@ -83,13 +91,17 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      if (amount <= 0) return
+      if (amount < 1) {
+        toast.error('Quantidade solicitada fora de estoque');
+        return
+      }
 
       const stockResponse = await api.get(`stock/${productId}`)
       const stock = stockResponse.data
 
-      if (amount > stock.amount) {
-        return toast.error('Quantidade solicitada fora de estoque');
+      if (!stock || (stock.amount < amount)) {
+        toast.error('Quantidade solicitada fora de estoque');
+        return
       }
 
       const newCart = cart.map(product => {
